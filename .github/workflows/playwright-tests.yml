@@ -33,7 +33,11 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
-
+      - name: Set up Node.js for Allure
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
       - name: Check Java and Maven versions
         run: |
           java --version
@@ -47,7 +51,16 @@ jobs:
 
       - name: Run cross-browser TestNG suite
         run: mvn -B -ntp clean test
-
+      - name: Generate Allure HTML report
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if [ -d target/allure-results ] && \
+             find target/allure-results -type f -name '*-result.json' -print -quit | grep -q .; then
+            npx --yes allure@3.20.1 generate target/allure-results
+          else
+            echo "No Allure test results found; skipping report generation."
+          fi
       - name: Upload test reports and debugging artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -56,6 +69,7 @@ jobs:
           path: |
             target/surefire-reports/
             target/allure-results/
+            allure-report/
             test-output/logs/
             test-output/screenshots/
             test-output/traces/
