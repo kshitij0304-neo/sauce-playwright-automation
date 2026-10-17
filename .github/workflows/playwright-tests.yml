@@ -1,0 +1,63 @@
+name: Java Playwright CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-browser-tests:
+    name: Cross-browser automation tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      HEADLESS: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Check Java and Maven versions
+        run: |
+          java --version
+          mvn --version
+
+      - name: Install Playwright browsers and Linux dependencies
+        run: >
+          mvn -B -ntp exec:java -e
+          -D exec.mainClass=com.microsoft.playwright.CLI
+          -D exec.args="install --with-deps"
+
+      - name: Run cross-browser TestNG suite
+        run: mvn -B -ntp clean test
+
+      - name: Upload test reports and debugging artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-ci-artifacts-${{ github.run_number }}
+          path: |
+            target/surefire-reports/
+            target/allure-results/
+            test-output/logs/
+            test-output/screenshots/
+            test-output/traces/
+          if-no-files-found: warn
+          retention-days: 14
